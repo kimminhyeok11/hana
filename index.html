@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>스프라이트 아틀라스 생성기 v3.9</title>
+    <title>스프라이트 아틀라스 생성기 v4.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- GIF.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
@@ -45,8 +45,8 @@
 
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <header class="text-center mb-8 relative">
-            <h1 class="text-4xl font-bold text-white">스프라이트 아틀라스 생성기 v3.9</h1>
-            <p class="text-slate-400 mt-2">AVIF 지원 여부 감지 기능 추가로 안정성 향상</p>
+            <h1 class="text-4xl font-bold text-white">스프라이트 아틀라스 생성기 v4.1</h1>
+            <p class="text-slate-400 mt-2">애니메이션 재생 중 JSON 복사 오류 수정</p>
             <button id="reset-app-btn" class="hidden absolute top-0 right-0 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-4 rounded-lg transition">
                 새로 시작
             </button>
@@ -809,8 +809,19 @@
             }
 
             function handleFpsChange() {
-                if (state.activeClipName) {
-                    state.animations[state.activeClipName].fps = parseInt(dom.fpsInput.value, 10) || 12;
+                if (state.activeClipName && state.animations[state.activeClipName]) {
+                    const newFps = parseInt(dom.fpsInput.value, 10);
+
+                    if (!isNaN(newFps) && newFps > 0) {
+                        state.animations[state.activeClipName].fps = newFps;
+                        // 애니메이션이 재생 중일 때 타이머를 리셋하여 변경사항을 즉시 부드럽게 적용
+                        if (state.animation.isPlaying) {
+                            state.animation.lastFrameTime = performance.now();
+                        }
+                    } else {
+                        // 유효하지 않은 입력일 경우, 이전 값으로 되돌림
+                        dom.fpsInput.value = state.animations[state.activeClipName].fps || 12;
+                    }
                     renderJsonOutput();
                 }
             }
@@ -879,7 +890,7 @@
                 const { data, width, height } = imageData;
                 const visited = new Array(width * height).fill(false);
                 const newSprites = [];
-                const MIN_DIM = 4;
+                const MIN_DIM = 8; // 최소 크기를 4에서 8로 늘려 작은 노이즈 무시
 
                 for (let y = 0; y < height; y++) {
                     for (let x = 0; x < width; x++) {
@@ -983,10 +994,22 @@
             }
 
             function handleCopyJson() {
-                dom.jsonOutput.select();
+                const jsonString = dom.jsonOutput.value;
+                if (!jsonString) return;
+
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = jsonString;
+                tempTextArea.style.position = 'absolute';
+                tempTextArea.style.left = '-9999px';
+                
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
                 document.execCommand('copy');
+                document.body.removeChild(tempTextArea);
+
                 showMessage('JSON 데이터가 복사되었습니다!');
             }
+
 
             function resetApplication() {
                 if (state.animation && state.animation.animationFrameId) {
