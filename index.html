@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>스프라이트 아틀라스 생성기 v4.1</title>
+    <title>스프라이트 아틀라스 생성기 v4.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- GIF.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
@@ -45,8 +45,8 @@
 
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <header class="text-center mb-8 relative">
-            <h1 class="text-4xl font-bold text-white">스프라이트 아틀라스 생성기 v4.1</h1>
-            <p class="text-slate-400 mt-2">애니메이션 재생 중 JSON 복사 오류 수정</p>
+            <h1 class="text-4xl font-bold text-white">스프라이트 아틀라스 생성기 v4.2</h1>
+            <p class="text-slate-400 mt-2">애니메이션 데이터 별도 복사 기능 추가</p>
             <button id="reset-app-btn" class="hidden absolute top-0 right-0 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-4 rounded-lg transition">
                 새로 시작
             </button>
@@ -120,10 +120,18 @@
                 </div>
 
                 <div>
-                    <h2 class="text-2xl font-semibold text-white mt-4 mb-4 border-b border-slate-700 pb-2">생성된 데이터 (JSON)</h2>
+                    <h2 class="text-2xl font-semibold text-white mt-4 mb-4 border-b border-slate-700 pb-2">생성된 데이터 (전체)</h2>
                     <div class="relative">
                         <textarea id="json-output" readonly class="w-full h-32 bg-gray-900 rounded-lg p-3 text-sm font-mono text-slate-300 border border-slate-700 focus:ring-2 focus:ring-sky-500 focus:outline-none"></textarea>
                         <button id="copy-button" class="absolute top-2 right-2 bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-3 rounded-md transition">복사</button>
+                    </div>
+                </div>
+                 
+                <div>
+                    <h2 class="text-2xl font-semibold text-white mt-4 mb-4 border-b border-slate-700 pb-2">생성된 데이터 (애니메이션)</h2>
+                    <div class="relative">
+                        <textarea id="animation-json-output" readonly class="w-full h-24 bg-gray-900 rounded-lg p-3 text-sm font-mono text-slate-300 border border-slate-700 focus:ring-2 focus:ring-sky-500 focus:outline-none"></textarea>
+                        <button id="copy-animation-button" class="absolute top-2 right-2 bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-3 rounded-md transition">복사</button>
                     </div>
                 </div>
             </div>
@@ -160,6 +168,8 @@
                 spriteListPlaceholder: document.getElementById('sprite-list-placeholder'),
                 jsonOutput: document.getElementById('json-output'),
                 copyButton: document.getElementById('copy-button'),
+                animationJsonOutput: document.getElementById('animation-json-output'),
+                copyAnimationButton: document.getElementById('copy-animation-button'),
                 resetAppBtn: document.getElementById('reset-app-btn'),
                 formatSelectorContainer: document.getElementById('format-selector-container'),
                 formatOptions: document.getElementById('format-options'),
@@ -242,7 +252,8 @@
                 dom.resetAppBtn.addEventListener('click', resetApplication);
                 dom.resetViewBtn.addEventListener('click', resetView);
                 dom.autoSliceBtn.addEventListener('click', handleAutoSlice);
-                dom.copyButton.addEventListener('click', handleCopyJson);
+                dom.copyButton.addEventListener('click', () => handleCopyJson(dom.jsonOutput));
+                dom.copyAnimationButton.addEventListener('click', () => handleCopyJson(dom.animationJsonOutput));
                 dom.messageOkBtn.addEventListener('click', () => hideModal(dom.messageModal));
                 dom.canvas.addEventListener('mousedown', handleInteractionStart);
                 dom.canvas.addEventListener('mousemove', handleInteractionMove);
@@ -576,7 +587,7 @@
             function updateAllUI() {
                 renderSpriteList();
                 renderAnimClips();
-                renderJsonOutput();
+                renderJsonOutputs();
                 drawCanvas();
             }
             
@@ -714,16 +725,17 @@
                 if (e.target.classList.contains('sprite-name-input')) {
                     const index = parseInt(e.target.dataset.index, 10);
                     state.sprites[index].name = e.target.value;
-                    renderJsonOutput();
+                    renderJsonOutputs();
                 }
             }
 
-            function renderJsonOutput() {
+            function renderJsonOutputs() {
                 const activeSource = state.imageSources[state.activeFormat];
                 const originalFile = state.imageSources.original.file;
 
                 if (!activeSource || !activeSource.image) {
                     dom.jsonOutput.value = '';
+                    dom.animationJsonOutput.value = '';
                     return;
                 }
 
@@ -732,7 +744,8 @@
                     ? (originalFile ? originalFile.name.split('.').pop() : 'png')
                     : state.activeFormat;
 
-                const output = {
+                // 전체 JSON 출력
+                const fullOutput = {
                     meta: {
                         image: `${originalName}.${ext}`,
                         size: { w: activeSource.image.naturalWidth, h: activeSource.image.naturalHeight }
@@ -740,7 +753,13 @@
                     sprites: state.sprites,
                     animations: state.animations
                 };
-                dom.jsonOutput.value = JSON.stringify(output, null, 2);
+                dom.jsonOutput.value = JSON.stringify(fullOutput, null, 2);
+
+                // 애니메이션 JSON만 출력
+                const animationOutput = {
+                    animations: state.animations
+                };
+                dom.animationJsonOutput.value = JSON.stringify(animationOutput, null, 2);
             }
 
             // --- 애니메이션 클립 관리 ---
@@ -822,7 +841,7 @@
                         // 유효하지 않은 입력일 경우, 이전 값으로 되돌림
                         dom.fpsInput.value = state.animations[state.activeClipName].fps || 12;
                     }
-                    renderJsonOutput();
+                    renderJsonOutputs();
                 }
             }
 
@@ -993,8 +1012,8 @@
                 }
             }
 
-            function handleCopyJson() {
-                const jsonString = dom.jsonOutput.value;
+            function handleCopyJson(textareaElement) {
+                const jsonString = textareaElement.value;
                 if (!jsonString) return;
 
                 const tempTextArea = document.createElement('textarea');
@@ -1040,4 +1059,3 @@
     </script>
 </body>
 </html>
-
